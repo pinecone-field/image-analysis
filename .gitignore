@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.env
+.venv/
+venv/
+ENV/
+.env
+
+# FastAPI/Uvicorn
+*.log
+
+# Node.js
+node_modules/
+dist/
+build/
+*.log
+
+# Vite
+frontend/.vite/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+*.pid
+
+# VSCode
+.vscode/
+
+# Misc
+uploads/ 

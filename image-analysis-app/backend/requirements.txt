@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+pillow
+python-multipart
+jina-clip
+ultralytics  # YOLOv8
+pinecone-client
+pydantic
+python-dotenv
+requests
