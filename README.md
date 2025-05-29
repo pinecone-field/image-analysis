@@ -57,8 +57,8 @@ image-analysis-app/
 │   │   └── main.py                   # FastAPI microservice for SAM2 segmentation
 │   ├── requirements.txt
 │   ├── Dockerfile
-│   ├── checkpoints/                  # Model weights for SAM2
-│   └── configs/                      # Model config for SAM2
+│   ├── checkpoints/                  # Model weights for SAM2 (see below)
+│   └── configs/                      # Model config for SAM2 (see below)
 ├── shared/
 │   ├── types/
 │   │   ├── index.ts                  # Shared type definitions (image metadata, etc.)
@@ -69,15 +69,29 @@ image-analysis-app/
 
 ---
 
+## Model Checkpoints
+
+**Model checkpoints and configs for SAM2 are NOT included in this repository.**
+
+To use the SAM2 segmentation service, you must download the official model weights and config files from the Meta SAM2 repository:
+
+- Repository: <https://github.com/facebookresearch/sam2>
+- Use the provided `download_ckpts.sh` script in that repo to download the checkpoints and configs.
+- Place the downloaded files in `sam2/checkpoints/` and `sam2/configs/` as required by the `sam2` service Dockerfile and code.
+
+---
+
 ## Deployment & Security
 
 - **All services (frontend, backend, sam2) are designed to run on a single EC2 GPU instance** for simplicity. Use Docker Compose for orchestration.
 - **For secure development/testing:**
   - Only open port 22 (SSH) in your security group.
   - Use SSH tunneling to access frontend/backend locally:
+
     ```sh
     ssh -i /path/to/key.pem -L 3000:localhost:3000 -L 8000:localhost:8000 -L 8001:localhost:8001 ec2-user@<EC2_PUBLIC_IP>
     ```
+
   - Access services at `localhost:3000`, `localhost:8000`, etc. on your local machine.
 - **For production:**
   - Consider a reverse proxy (nginx, Caddy) and HTTPS.
@@ -88,10 +102,12 @@ image-analysis-app/
 - **Spot Instances:** For development and testing, consider using AWS Spot Instances to save up to 90% on compute costs. Be aware that spot instances can be interrupted at any time.
 - **Automatic Shutdown:** To avoid unnecessary charges, set up automatic shutdown for your EC2 instance after a period of inactivity.
 - **Manual Start/Stop:** Before deploying Docker, ensure your EC2 instance is running. You can start/stop your instance using the AWS Console or AWS CLI:
+
   ```sh
   aws ec2 start-instances --instance-ids <your-instance-id>
   aws ec2 stop-instances --instance-ids <your-instance-id>
   ```
+
 - **Monitor Usage:** Regularly monitor your AWS usage and billing dashboard to avoid unexpected charges.
 
 ---
@@ -100,8 +116,9 @@ image-analysis-app/
 
 - See `backend/requirements.txt`, `frontend/package.json`, and `sam2/requirements.txt` for dependencies.
 - Configure API keys, model paths, and Pinecone settings in `.env` and `backend/app/core/config.py`.
-- Place SAM2 model weights and config in `sam2/checkpoints/` and `sam2/configs/`.
+- **Download SAM2 model weights and configs from [facebookresearch/sam2](https://github.com/facebookresearch/sam2) using their `download_ckpts.sh` script.** (NOTE: For your convenience a copy of this script is included in the `image-analysis-app` directory. However it is recommended to download a fresh version from the source for production work.)
+- Place the downloaded files in `sam2/checkpoints/` and `sam2/configs/`.
 - Run all services with Docker Compose or start them separately as needed.
 - For development, use SSH tunneling for secure access.
 
---- 
+---
