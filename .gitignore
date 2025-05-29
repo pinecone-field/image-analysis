@@ -33,3 +33,6 @@ Thumbs.db
 
 # Misc
 uploads/ 
+
+# Sam2 checkpoints
+image-analysis-app/sam2/checkpoints/*
