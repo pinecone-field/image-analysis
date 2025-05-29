@@ -1,13 +1,21 @@
 import os
 from dotenv import load_dotenv
+import logging
 
 load_dotenv()
 
+# Configure logging globally for the backend
+logging.basicConfig(level=logging.INFO)
+
 # Model and API configuration
-CLIP_MODEL_PATH = os.getenv("CLIP_MODEL_PATH", "jina-clip-v2")
-YOLO_MODEL_PATH = os.getenv("YOLO_MODEL_PATH", "yolov8n.pt")
+CLIP_MODEL_PATH = os.getenv("CLIP_MODEL_PATH", "openai/clip-vit-base-patch32")
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY", "")
-PINECONE_ENV = os.getenv("PINECONE_ENV", "us-west1-gcp")
+PINECONE_CLOUD = os.getenv("PINECONE_CLOUD", "aws")
+PINECONE_REGION = os.getenv("PINECONE_REGION", "us-west-2")
 PINECONE_INDEX = os.getenv("PINECONE_INDEX", "image-analysis-index")
+SAM2_SEGMENTATION_URL = os.getenv("SAM2_SEGMENTATION_URL", "http://sam2-gpu-service:8001/segment")
+
+# Debugging
+DEBUG = os.getenv("DEBUG", False) == "true" 
 
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads/")

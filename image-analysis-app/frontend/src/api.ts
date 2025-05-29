@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: '/', // Vite proxy will handle /images and /objects
+  baseURL: '/', // Will be proxied to backend in dev
 });
 
 export default api;

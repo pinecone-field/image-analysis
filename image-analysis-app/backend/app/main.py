@@ -1,8 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import images, objects
+from app.core.config import DEBUG
 
-app = FastAPI(title="Pinecone Image Analysis & Search")
+app = FastAPI(title="Pinecone Image Analysis & Search", debug=DEBUG)
 
 # Allow frontend dev
 app.add_middleware(
