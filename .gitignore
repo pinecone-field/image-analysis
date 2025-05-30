@@ -35,5 +35,4 @@ Thumbs.db
 uploads/ 
 
 # Sam2 checkpoints
-image-analysis-app/sam2/checkpoints/*
-image-analysis-app/sam2/configs/*
+image-analysis-app/sam2/checkpoints/*.pt
