@@ -1,2 +1,0 @@
-# Sam2 checkpoints (exclude all .pt files in any sam2/checkpoints directory)
-image-analysis-app/backend/sam2/checkpoints/*.pt 
