@@ -33,3 +33,6 @@ Thumbs.db
 
 # Misc
 uploads/ 
+
+# Sam2 checkpoints
+backend/sam2/checkpoints/*.pt
