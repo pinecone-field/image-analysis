@@ -35,4 +35,5 @@ Thumbs.db
 uploads/ 
 
 # Sam2 checkpoints
+backend/checkpoints/*.pt
 backend/sam2/checkpoints/*.pt
