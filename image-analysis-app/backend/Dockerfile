@@ -7,6 +7,9 @@ RUN apt-get update && apt-get install -y git && \
     pip install --upgrade pip && \
     pip install -r requirements.txt
 
+COPY download_sam2_ckpts.sh ./
+RUN ./download_sam2_ckpts.sh
+
 COPY . .
 
 EXPOSE 8000
