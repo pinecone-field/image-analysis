@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   backend:
-    build: ./backend
+    image: corypinecone/image-analysis-backend:latest
     ports:
       - "8000:8000"
     env_file:
@@ -10,7 +10,7 @@ services:
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
 
   frontend:
-    build: ./frontend
+    image: corypinecone/image-analysis-frontend:latest
     ports:
       - "3000:3000"
     command: ["npm", "start"]
