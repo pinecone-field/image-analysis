@@ -13,7 +13,6 @@ PINECONE_API_KEY = os.getenv("PINECONE_API_KEY", "")
 PINECONE_CLOUD = os.getenv("PINECONE_CLOUD", "aws")
 PINECONE_REGION = os.getenv("PINECONE_REGION", "us-west-2")
 PINECONE_INDEX = os.getenv("PINECONE_INDEX", "image-analysis-index")
-SAM2_SEGMENTATION_URL = os.getenv("SAM2_SEGMENTATION_URL", "http://sam2-gpu-service:8001/segment")
 
 # Debugging
 DEBUG = os.getenv("DEBUG", False) == "true" 

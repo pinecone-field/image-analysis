@@ -2,8 +2,8 @@ from typing import List, Dict, Any
 from PIL import Image
 import io
 import torch
-from sam2.build_sam import build_sam2
-from sam2.sam2_image_predictor import SAM2ImagePredictor
+from sam2.build_sam import build_sam2  # from pip package, not local
+from sam2.sam2_image_predictor import SAM2ImagePredictor  # from pip package, not local
 import numpy as np
 import logging
 import traceback
@@ -32,27 +32,15 @@ def get_sam2_predictor():
 
 def detect_objects(image_bytes: bytes) -> List[Dict[str, Any]]:
     try:
-        # Detect image format
-        try:
-            with Image.open(io.BytesIO(image_bytes)) as img:
-                fmt = img.format
-        except Exception:
-            fmt = None
-        if fmt == "JPEG":
-            mime = "image/jpeg"
-        elif fmt == "PNG":
-            mime = "image/png"
-        elif fmt == "GIF":
-            mime = "image/gif"
-        else:
-            mime = "image/png"  # fallback
-        files = {"file": (f"image.{fmt.lower() if fmt else 'png'}", image_bytes, mime)}
-        response = requests.post(SAM2_SEGMENTATION_URL, files=files)
-        response.raise_for_status()
-        data = response.json()
+        with Image.open(io.BytesIO(image_bytes)) as img:
+            img = img.convert("RGB")
+            np_img = np.array(img)
+        predictor = get_sam2_predictor()
+        # Run SAM2 prediction
+        results = predictor.predict(np_img)
         regions = []
-        for region in data.get("regions", []):
-            mask = region["mask"]
+        for region in results:
+            mask = region["mask"]  # numpy array
             bbox = region["bbox"]
             tag = region.get("tag", "region")
             regions.append({
@@ -60,10 +48,10 @@ def detect_objects(image_bytes: bytes) -> List[Dict[str, Any]]:
                 "bbox": bbox,
                 "tag": tag
             })
-        logger.info(f"SAM2 GPU: Detected {len(regions)} regions in image.")
+        logger.info(f"SAM2 local: Detected {len(regions)} regions in image.")
         return regions
     except Exception as e:
-        logger.error(f"Error during SAM2 GPU object detection: {e}")
+        logger.error(f"Error during SAM2 local object detection: {e}")
         logger.error(traceback.format_exc())
         raise
 
