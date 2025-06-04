@@ -5,8 +5,13 @@ services:
     image: corypinecone/image-analysis-backend:latest
     ports:
       - "8000:8000"
-    env_file:
-      - .env
+    environment:
+      - PINECONE_API_KEY
+      - PINECONE_CLOUD
+      - PINECONE_REGION
+      - PINECONE_INDEX_NAME
+      - CLIP_MODEL_PATH
+      - NIM_API_KEY
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
 
   frontend:
