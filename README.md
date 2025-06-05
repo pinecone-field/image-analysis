@@ -2,12 +2,12 @@
 
 ## Overview
 
-A modular, full-stack demo for image ingestion, embedding, segmentation, and search using Pinecone, OpenAI CLIP (local), and Meta SAM2 (GPU, via microservice). Supports full-image and object-level search, text-to-image queries, and hybrid search. Designed for extensibility and developer-friendliness.
+A modular, full-stack demo for image ingestion, embedding, segmentation, and search using Pinecone, OpenAI CLIP (local), and Meta SAM2 (GPU, via Brev Launchable). Supports full-image and object-level search, text-to-image queries, and hybrid search. Designed for extensibility, reproducibility, and demo-friendliness.
 
 ## Core Capabilities
 
 - **Image Ingestion & Embedding**: Upload images, generate CLIP embeddings and captions, optionally embed detected regions/objects.
-- **Segmentation**: Automatic region segmentation with Meta SAM2 (runs as a GPU microservice).
+- **Segmentation**: Automatic region segmentation with Meta SAM2 (runs on GPU, directly in backend).
 - **Storage & Indexing**: Store embeddings and metadata in Pinecone, including object-level regions.
 - **Search**: Search by image, region/object, or text. Hybrid queries supported.
 - **Visual Segmentation UI**: Interactive region selection for custom crops.
@@ -19,51 +19,20 @@ A modular, full-stack demo for image ingestion, embedding, segmentation, and sea
 ## Project Structure
 
 ```bash
-image-analysis-app/
+.
 ├── backend/
 │   ├── app/
-│   │   ├── api/
-│   │   │   ├── routes/
-│   │   │   │   ├── images.py         # Upload, index, search
-│   │   │   │   ├── objects.py        # Object-level search
-│   │   │   └── __init__.py
-│   │   ├── core/
-│   │   │   ├── embeddings.py         # CLIP embedding functions (local, CPU)
-│   │   │   ├── detection.py          # Segmentation client (calls sam2 service)
-│   │   │   ├── pinecone.py           # Indexing and search abstraction
-│   │   │   └── config.py             # Configs (model path, keys, etc.)
-│   │   ├── models/
-│   │   │   ├── schemas.py            # Pydantic models for request/response
-│   │   └── main.py                   # FastAPI app entry point
-│   ├── requirements.txt
-│   └── Dockerfile
-├── frontend/
-│   ├── public/
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── ImageUploader.tsx
-│   │   │   ├── ImageSearch.tsx
-│   │   │   ├── RegionSelector.tsx    # Canvas-style object selection
-│   │   ├── pages/
-│   │   │   ├── index.tsx
-│   │   │   ├── search.tsx
-│   │   ├── utils/
-│   │   │   ├── api.ts                # Axios interface to backend
-│   │   └── App.tsx
-│   ├── package.json
-│   └── vite.config.ts
-├── sam2/
-│   ├── app/
-│   │   └── main.py                   # FastAPI microservice for SAM2 segmentation
 │   ├── requirements.txt
 │   ├── Dockerfile
-│   ├── checkpoints/                  # Model weights for SAM2 (see below)
-│   └── configs/                      # Model config for SAM2 (see below)
+│   └── download_ckpts.sh
+├── frontend/
+│   ├── src/
+│   ├── package.json
+│   └── Dockerfile
 ├── shared/
-│   ├── types/
-│   │   ├── index.ts                  # Shared type definitions (image metadata, etc.)
-├── .env
+│   └── types/
 ├── docker-compose.yml
+├── .env.example
 └── README.md
 ```
 
@@ -71,54 +40,49 @@ image-analysis-app/
 
 ## Model Checkpoints
 
-**Model checkpoints and configs for SAM2 are NOT included in this repository.**
+**Model checkpoints for Meta SAM2 are NOT included in this repository.**
 
-To use the SAM2 segmentation service, you must download the official model weights and config files from the Meta SAM2 repository:
-
-- Repository: <https://github.com/facebookresearch/sam2>
-- Use the provided `download_ckpts.sh` script in that repo to download the checkpoints and configs.
-- Place the downloaded files in `sam2/checkpoints/` and `sam2/configs/` as required by the `sam2` service Dockerfile and code.
+- The backend Dockerfile (or you, manually) runs `backend/download_ckpts.sh` to fetch the required checkpoints into `backend/checkpoints/`.
+- No large files are stored in git.
 
 ---
 
-## Deployment & Security
+## Deployment (Brev Launchable)
 
-- **All services (frontend, backend, sam2) are designed to run on a single EC2 GPU instance** for simplicity. Use Docker Compose for orchestration.
-- **For secure development/testing:**
-  - Only open port 22 (SSH) in your security group.
-  - Use SSH tunneling to access frontend/backend locally:
+- Backend and frontend are published as prebuilt Docker images on Docker Hub.
+- The `docker-compose.yml` references these images directly (no build context required).
+- When using Brev, provide the full path to your compose file (blob/raw URL).
+- Remove any `env_file:` lines from your compose file and set environment variables in the Brev UI.
+- Select your desired GPU type (A10, L4, A100, etc.).
+- Click "Validate" and launch your environment.
 
-    ```sh
-    ssh -i /path/to/key.pem -L 3000:localhost:3000 -L 8000:localhost:8000 -L 8001:localhost:8001 ec2-user@<EC2_PUBLIC_IP>
-    ```
+---
 
-  - Access services at `localhost:3000`, `localhost:8000`, etc. on your local machine.
-- **For production:**
-  - Consider a reverse proxy (nginx, Caddy) and HTTPS.
-  - Restrict public access to only the frontend, if possible.
+## Manual Local Run
 
-## Cost-Saving Tips
-
-- **Spot Instances:** For development and testing, consider using AWS Spot Instances to save up to 90% on compute costs. Be aware that spot instances can be interrupted at any time.
-- **Automatic Shutdown:** To avoid unnecessary charges, set up automatic shutdown for your EC2 instance after a period of inactivity.
-- **Manual Start/Stop:** Before deploying Docker, ensure your EC2 instance is running. You can start/stop your instance using the AWS Console or AWS CLI:
+- Clone the repo.
+- Copy `.env.example` to `.env` and fill in your keys.
+- Build and run with Docker Compose:
 
   ```sh
-  aws ec2 start-instances --instance-ids <your-instance-id>
-  aws ec2 stop-instances --instance-ids <your-instance-id>
+  docker compose up
   ```
 
-- **Monitor Usage:** Regularly monitor your AWS usage and billing dashboard to avoid unexpected charges.
+- Access the frontend at [http://localhost:3000](http://localhost:3000) and backend at [http://localhost:8000](http://localhost:8000).
 
 ---
 
-## Getting Started
+## Environment Variables
 
-- See `backend/requirements.txt`, `frontend/package.json`, and `sam2/requirements.txt` for dependencies.
-- Configure API keys, model paths, and Pinecone settings in `.env` and `backend/app/core/config.py`.
-- **Download SAM2 model weights and configs from [facebookresearch/sam2](https://github.com/facebookresearch/sam2) using their `download_ckpts.sh` script.** (NOTE: For your convenience a copy of this script is included in the `image-analysis-app` directory. However it is recommended to download a fresh version from the source for production work.)
-- Place the downloaded files in `sam2/checkpoints/` and `sam2/configs/`.
-- Run all services with Docker Compose or start them separately as needed.
-- For development, use SSH tunneling for secure access.
+- See `.env.example` for required variables.
+- When using Brev, set these in the Launchable UI.
+
+---
+
+## Notes
+
+- All heavy compute (SAM2, CLIP) runs on GPU in the backend container.
+- No credentials or secrets are stored in Docker images or in git.
+- For more, see [Brev Launchables - Getting Started](https://docs.nvidia.com/brev/latest/launchables-getting-started.html).
 
 ---
