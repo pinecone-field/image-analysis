@@ -7,8 +7,6 @@ from sam2.sam2_image_predictor import SAM2ImagePredictor  # from pip package, no
 import numpy as np
 import logging
 import traceback
-import requests
-from app.core.config import SAM2_SEGMENTATION_URL
 
 logger = logging.getLogger(__name__)
 
