@@ -7,8 +7,6 @@ from sam2.sam2_image_predictor import SAM2ImagePredictor  # from pip package, no
 import numpy as np
 import logging
 import traceback
-import requests
-from app.core.config import SAM2_SEGMENTATION_URL
 
 logger = logging.getLogger(__name__)
 
@@ -16,8 +14,8 @@ logger = logging.getLogger(__name__)
 def get_sam2_predictor():
     try:
         if not hasattr(get_sam2_predictor, "predictor"):
-            checkpoint = "./checkpoints/sam2.1_hiera_large.pt"  # Update path as needed
-            model_cfg = "configs/sam2.1/sam2.1_hiera_l.yaml"    # Update path as needed
+            checkpoint = "/app/backend/checkpoints/sam2.1_hiera_large.pt"  # Update path as needed
+            model_cfg = "/app/backend/configs/sam2.1/sam2.1_hiera_l.yaml"    # Update path as needed
             logger.info(f"Loading SAM2 model from {checkpoint} with config {model_cfg}")
             model = build_sam2(model_cfg, checkpoint)
             device = "cuda" if torch.cuda.is_available() else "cpu"

@@ -7,7 +7,7 @@
 # LICENSE file in the root directory of this source tree.
 
 # Use either wget or curl to download the checkpoints
-local_dir="backend/checkpoints"
+local_dir="/app/backend/checkpoints"
 mkdir -p $local_dir
 
 if command -v wget &> /dev/null; then
