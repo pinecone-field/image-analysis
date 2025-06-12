@@ -1,18 +1,19 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import HomePage from './pages/HomePage';
+import StorePage from './pages/StorePage';
 import SearchPage from './pages/SearchPage';
+import HomePage from './pages/HomePage';
 
 function App() {
   return (
     <Router>
-      <nav style={{ marginBottom: 24 }}>
-        <Link to="/" style={{ marginRight: 16 }}>Upload</Link>
-        <Link to="/search">Search</Link>
+      <nav>
+        <Link to="/store">Store</Link> | <Link to="/search">Search</Link>
       </nav>
       <Routes>
-        <Route path="/" element={<HomePage />} />
+        <Route path="/store" element={<StorePage />} />
         <Route path="/search" element={<SearchPage />} />
+        <Route path="/" element={<HomePage />} />
       </Routes>
     </Router>
   );

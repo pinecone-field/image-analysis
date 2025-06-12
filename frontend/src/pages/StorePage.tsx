@@ -1,24 +1,14 @@
 import React, { useState, useRef } from "react";
 import axios from "axios";
 
-interface DetectedObject {
-  id: string;
-  bbox: number[];
-  tag?: string;
-}
-
-const SearchPage: React.FC = () => {
+const StorePage: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
-  const [imageUrl, setImageUrl] = useState<string>("");
-  const [objects, setObjects] = useState<DetectedObject[]>([]);
   const [status, setStatus] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       setFile(e.target.files[0]);
-      setImageUrl(URL.createObjectURL(e.target.files[0]));
-      setObjects([]);
     }
   };
 
@@ -26,34 +16,27 @@ const SearchPage: React.FC = () => {
     if (!file) return;
     const formData = new FormData();
     formData.append("file", file);
-    setStatus("Processing...");
+    setStatus("Uploading...");
     try {
-      const res = await axios.post("http://204.52.26.14:8000/search", formData, {
+      await axios.post("http://204.52.26.14:8000/store", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      setObjects(res.data.objects || []);
-      setStatus("Objects detected. Click to search by object.");
+      setStatus("Stored successfully!");
     } catch (err) {
-      setStatus("Error processing image.");
+      setStatus("Error storing image.");
     }
-  };
-
-  const handleObjectClick = async (objectId: string) => {
-    setStatus(`Searching for object ${objectId}...`);
-    // Call backend to search by object
-    // Display results (implement SearchResults component)
   };
 
   return (
     <div style={{
-      maxWidth: 600,
+      maxWidth: 500,
       margin: "3rem auto",
       padding: "2rem",
       background: "#fff",
       borderRadius: 24,
       boxShadow: "0 4px 24px rgba(0,0,0,0.06)"
     }}>
-      <h2 style={{ color: "#1A2E35", fontWeight: 800, marginBottom: "2rem" }}>Search by Image</h2>
+      <h2 style={{ color: "#1A2E35", fontWeight: 800, marginBottom: "2rem" }}>Store Image</h2>
       <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "2rem" }}>
         <input
           type="file"
@@ -98,36 +81,11 @@ const SearchPage: React.FC = () => {
         }}
         disabled={!file}
       >
-        Upload & Detect
+        Upload & Store
       </button>
-      <div style={{ marginTop: "1rem", color: status.includes("error") ? "#d9534f" : "#0057FF", fontWeight: 600 }}>{status}</div>
-      {imageUrl && (
-        <div style={{ marginTop: "2rem" }}>
-          <img src={imageUrl} alt="Uploaded" style={{ maxWidth: 400, borderRadius: 12, boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }} />
-          <div style={{ marginTop: "1rem", display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-            {objects.map((obj, idx) => (
-              <button
-                key={obj.id || idx}
-                onClick={() => handleObjectClick(obj.id)}
-                style={{
-                  background: "#F4F6F8",
-                  color: "#0057FF",
-                  border: "1px solid #E5E7EB",
-                  padding: "0.5rem 1rem",
-                  borderRadius: 8,
-                  fontWeight: 700,
-                  fontSize: "1rem",
-                  cursor: "pointer"
-                }}
-              >
-                Object {idx + 1}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      <div style={{ marginTop: "1rem", color: status.includes("success") ? "#0057FF" : "#d9534f", fontWeight: 600 }}>{status}</div>
     </div>
   );
 };
 
-export default SearchPage; 
+export default StorePage; 
