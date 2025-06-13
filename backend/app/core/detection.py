@@ -34,13 +34,12 @@ def detect_objects(image_bytes: bytes) -> List[Dict[str, Any]]:
             img = img.convert("RGB")
             np_img = np.array(img)
         predictor = get_sam2_predictor()
-        # Run SAM2 prediction
-        results = predictor.predict(np_img)
+        predictor.set_image(np_img)
+        results = predictor.predict()
         regions = []
-        for region in results:
-            mask = region["mask"]  # numpy array
-            bbox = region["bbox"]
-            tag = region.get("tag", "region")
+        for idx, mask in enumerate(results):
+            bbox = None  # or compute from mask if needed
+            tag = "region"
             regions.append({
                 "mask": mask,
                 "bbox": bbox,

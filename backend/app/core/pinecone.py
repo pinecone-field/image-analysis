@@ -15,8 +15,8 @@ def get_pinecone_index():
         global _pinecone_index
         if _pinecone_index is None:
             logger.info("Initializing Pinecone client and index...")
-            pc = Pinecone(api_key=config.PINECONE_API_KEY, environment=config.PINECONE_ENV)
-            if config.PINECONE_INDEX not in pc.list_indexes():
+            pc = Pinecone(api_key=config.PINECONE_API_KEY)
+            if config.PINECONE_INDEX not in [idx["name"] for idx in pc.list_indexes()]:
                 logger.info(f"Creating Pinecone index: {config.PINECONE_INDEX}")
                 spec = ServerlessSpec(
                     cloud=config.PINECONE_CLOUD or "aws",
@@ -24,7 +24,7 @@ def get_pinecone_index():
                 )
                 pc.create_index(
                     config.PINECONE_INDEX,
-                    dimension=1024,
+                    dimension=512,
                     metric="cosine",
                     spec=spec
                 )
