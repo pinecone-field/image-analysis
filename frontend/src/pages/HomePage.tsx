@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 
-const BACKEND_URL = "http://204.52.26.14:8000/";
+const BACKEND_URL = process.env.REACT_APP_BACKEND_API || '/';
 
 const HomePage: React.FC = () => {
   const [backendUp, setBackendUp] = useState(true);
@@ -10,10 +10,13 @@ const HomePage: React.FC = () => {
     let didCancel = false;
     const checkBackend = async () => {
       try {
+        console.log("[HomePage] Checking backend:", BACKEND_URL);
         await axios.get(BACKEND_URL, { timeout: 2000 });
         if (!didCancel) setBackendUp(true);
-      } catch {
+        console.log("[HomePage] Backend is UP");
+      } catch (err) {
         if (!didCancel) setBackendUp(false);
+        console.error("[HomePage] Backend is DOWN", err);
       }
     };
     checkBackend();

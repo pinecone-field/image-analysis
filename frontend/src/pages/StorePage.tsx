@@ -4,6 +4,7 @@ import axios from "axios";
 const StorePage: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
   const [status, setStatus] = useState<string>("");
+  const [errorDetails, setErrorDetails] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -17,13 +18,30 @@ const StorePage: React.FC = () => {
     const formData = new FormData();
     formData.append("file", file);
     setStatus("Uploading...");
+    setErrorDetails("");
+    const url = `${process.env.REACT_APP_BACKEND_API}/images/upload`;
+    console.log("[StorePage] POST", url, formData);
     try {
-      await axios.post("http://204.52.26.14:8000/store", formData, {
+      const response = await axios.post(url, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
+      console.log("[StorePage] Response:", response);
       setStatus("Stored successfully!");
-    } catch (err) {
+    } catch (err: any) {
+      let details = "";
+      if (err.response) {
+        details = `Status: ${err.response.status}\nMessage: ${err.response.statusText}`;
+        if (err.response.data) {
+          details += `\nResponse: ${JSON.stringify(err.response.data)}`;
+        }
+      } else if (err.request) {
+        details = "No response received from backend.";
+      } else {
+        details = err.message;
+      }
       setStatus("Error storing image.");
+      setErrorDetails(details);
+      console.error("[StorePage] Error:", err, details);
     }
   };
 
@@ -84,6 +102,9 @@ const StorePage: React.FC = () => {
         Upload & Store
       </button>
       <div style={{ marginTop: "1rem", color: status.includes("success") ? "#0057FF" : "#d9534f", fontWeight: 600 }}>{status}</div>
+      {errorDetails && (
+        <pre style={{ color: '#d9534f', background: '#fff0f0', padding: 10, borderRadius: 8, marginTop: 8 }}>{errorDetails}</pre>
+      )}
     </div>
   );
 };

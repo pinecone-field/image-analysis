@@ -34,14 +34,18 @@ const ImageUploader: React.FC = () => {
     if (!file) return;
     setUploading(true);
     setMessage(null);
+    const url = '/images/upload';
+    console.log('[ImageUploader] POST', url, file);
     try {
       const formData = new FormData();
       formData.append('file', file);
-      await api.post('/images/upload', formData, {
+      const response = await api.post(url, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
+      console.log('[ImageUploader] Response:', response);
       setMessage('Upload successful!');
     } catch (err: any) {
+      console.error('[ImageUploader] Error:', err);
       setMessage('Upload failed.');
     } finally {
       setUploading(false);
