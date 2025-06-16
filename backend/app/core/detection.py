@@ -78,7 +78,10 @@ def detect_objects(image_bytes: bytes) -> List[Dict[str, Any]]:
             if not contours:
                 continue
             largest_contour = max(contours, key=cv2.contourArea)
-            polygon = largest_contour.squeeze().tolist()  # [[x1, y1], [x2, y2], ...]
+            # Smooth the polygon using approxPolyDP
+            epsilon = 0.01 * cv2.arcLength(largest_contour, True)  # 1% of perimeter
+            smoothed = cv2.approxPolyDP(largest_contour, epsilon, True)
+            polygon = smoothed.squeeze().tolist()  # [[x1, y1], [x2, y2], ...]
             tag = "region"
             regions.append({
                 "mask": mask,
