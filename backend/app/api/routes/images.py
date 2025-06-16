@@ -2,7 +2,7 @@ from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from typing import List, Dict, Any
 from app.models.schemas import ImageUploadResponse, SearchResult
 from app.core.embeddings import extract_embeddings, generate_caption
-from app.core.detection import detect_objects, crop_region_with_mask
+from app.core.detection import detect_objects, crop_region_with_mask, ensure_2d_mask
 from app.core.pinecone import index_embedding
 from datetime import datetime
 import uuid
@@ -27,6 +27,7 @@ def upload_image(file: UploadFile = File(...)) -> Dict[str, Any]:
         logger.info("Received image upload request: %s", file.filename)
         image_bytes = file.file.read()
         image_id = str(uuid.uuid4())
+        filename = file.filename
         logger.info("Generating caption for image_id=%s", image_id)
         caption = generate_caption(image_bytes)
         logger.info("Generating embedding for image_id=%s", image_id)
@@ -43,41 +44,61 @@ def upload_image(file: UploadFile = File(...)) -> Dict[str, Any]:
                 "caption": caption,
                 "object_tags": object_tags,
                 "upload_time": upload_time.isoformat(),
-                "type": "full_image"
+                "type": "full_image",
+                "filename": filename,
             },
             vector_id=f"image_{image_id}"
         )
         regions = []
+        logger.info(f"Detected {len(objects)} regions for image_id={image_id}")
         for idx, obj in enumerate(objects):
             bbox = obj["bbox"]
             mask = obj["mask"]
             tag = obj["tag"]
-            logger.info("Processing region %d for image_id=%s", idx, image_id)
+            logger.info(f"Region {idx}: bbox={bbox}, tag={tag}")
             region_bytes = crop_region_with_mask(image_bytes, mask, bbox)
+            if region_bytes is None:
+                logger.warning(f"Skipping region {idx} for image_id={image_id} due to invalid region bytes.")
+                continue
             region_embedding = extract_embeddings(region_bytes)
+            try:
+                mask_2d = ensure_2d_mask(mask)
+            except ValueError as e:
+                logger.warning(f"Skipping mask PNG encoding for region {idx} due to mask error: {e}")
+                continue
             from PIL import Image as PILImage
             import io
-            mask_img = PILImage.fromarray((mask * 255).astype(np.uint8))
+            mask_img = PILImage.fromarray((mask_2d * 255).astype(np.uint8))
             buf = io.BytesIO()
             mask_img.save(buf, format="PNG")
             mask_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+            # Convert bbox to native Python ints for response
+            def to_py_number(val):
+                if isinstance(val, np.generic):
+                    return val.item()
+                if isinstance(val, (list, tuple, np.ndarray)):
+                    return [to_py_number(x) for x in val]
+                if isinstance(val, (int, float)):
+                    return val
+                return float(val)
+            bbox_py = to_py_number(bbox)
             logger.info("Indexing region %d embedding for image_id=%s", idx, image_id)
             index_embedding(
                 embedding=region_embedding,
                 metadata={
                     "image_id": image_id,
-                    "region_idx": idx,
+                    "region_idx": int(idx),
                     "caption": caption,
                     "object_tag": tag,
-                    "bbox": bbox,
                     "upload_time": upload_time.isoformat(),
-                    "type": "region"
+                    "type": "region",
+                    "filename": filename,
                 },
                 vector_id=f"image_{image_id}_region_{idx}"
             )
             regions.append({
                 "tag": tag,
-                "bbox": bbox,
+                "bbox": bbox_py,
                 "embedding": region_embedding,
                 "mask_png_b64": mask_b64
             })
@@ -88,7 +109,8 @@ def upload_image(file: UploadFile = File(...)) -> Dict[str, Any]:
                 "caption": caption,
                 "object_tags": object_tags,
                 "upload_time": upload_time,
-                "embedding": embedding
+                "embedding": embedding,
+                "filename": filename,
             },
             "regions": regions
         }

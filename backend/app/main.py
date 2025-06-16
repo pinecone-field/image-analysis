@@ -3,6 +3,7 @@ load_dotenv()
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from app.api.routes import images, objects
 from app.core.config import DEBUG
 
@@ -19,3 +20,7 @@ app.add_middleware(
 
 app.include_router(images.router, prefix="/images", tags=["images"])
 app.include_router(objects.router, prefix="/objects", tags=["objects"])
+
+@app.get("/", tags=["health"])
+def health_check():
+    return JSONResponse(content={"status": "ok"})

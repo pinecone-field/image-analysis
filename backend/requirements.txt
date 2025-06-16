@@ -92,7 +92,7 @@ requests==2.32.3
 rich==14.0.0
 rsa==4.9.1
 safetensors==0.5.3
-SAM-2 @ git+https://github.com/facebookresearch/sam2.git@2b90b9f5ceec907a1c18123530e92e794ad901a4
+SAM-2 @ git+https://github.com/facebookresearch/sam2.git@main
 scipy==1.15.3
 setuptools==80.8.0
 six==1.17.0
