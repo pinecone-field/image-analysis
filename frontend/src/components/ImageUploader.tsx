@@ -34,7 +34,7 @@ const ImageUploader: React.FC = () => {
     if (!file) return;
     setUploading(true);
     setMessage(null);
-    const url = '/images/upload';
+    const url = '/api/images/upload';
     console.log('[ImageUploader] POST', url, file);
     try {
       const formData = new FormData();

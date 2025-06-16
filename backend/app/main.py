@@ -6,6 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.api.routes import images, objects
 from app.core.config import DEBUG
+from fastapi.staticfiles import StaticFiles
+import os
 
 app = FastAPI(title="Pinecone Image Analysis & Search", debug=DEBUG)
 
@@ -18,8 +20,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(images.router, prefix="/images", tags=["images"])
-app.include_router(objects.router, prefix="/objects", tags=["objects"])
+# Serve images directory as static files (correct path)
+app.mount("/images", StaticFiles(directory=os.path.abspath(os.path.join(os.path.dirname(__file__), "../images"))), name="images")
+
+app.include_router(images.router, prefix="/api/images", tags=["images"])
+app.include_router(objects.router, prefix="/api/objects", tags=["objects"])
 
 @app.get("/", tags=["health"])
 def health_check():

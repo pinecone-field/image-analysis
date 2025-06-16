@@ -5,6 +5,7 @@ from pinecone import ServerlessSpec
 import itertools
 import logging
 import traceback
+from app.core.embeddings import extract_embeddings
 
 # Initialize Pinecone client and index
 _pinecone_index = None
@@ -71,11 +72,15 @@ def index_embeddings(
         logger.error(traceback.format_exc())
         raise
 
-def search_index(query_embedding: List[float], top_k: int = 5) -> List[Dict[str, Any]]:
+def search_index(query, top_k: int = 5) -> List[Dict[str, Any]]:
     """
-    Search Pinecone for similar embeddings.
+    Search Pinecone for similar embeddings. Accepts either an embedding (list of floats) or image bytes.
     """
     try:
+        if isinstance(query, bytes):
+            query_embedding = extract_embeddings(query)
+        else:
+            query_embedding = query
         index = get_pinecone_index()
         logger.info(f"Searching Pinecone index for top_k={top_k}")
         results = index.query(vector=query_embedding, top_k=top_k, include_metadata=True)

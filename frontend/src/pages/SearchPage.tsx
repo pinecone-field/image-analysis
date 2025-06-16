@@ -27,7 +27,7 @@ const SearchPage: React.FC = () => {
     const formData = new FormData();
     formData.append("file", file);
     setStatus("Processing...");
-    const url = `${process.env.REACT_APP_BACKEND_API}/images/search`;
+    const url = `${process.env.REACT_APP_BACKEND_API}/api/images/search`;
     console.log("[SearchPage] POST", url, formData);
     try {
       const res = await axios.post(url, formData, {
