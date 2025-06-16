@@ -5,6 +5,7 @@ interface Region {
   tag: string;
   bbox: number[];
   mask_png_b64: string;
+  polygon?: number[][];
 }
 
 const StorePage: React.FC = () => {
@@ -146,19 +147,32 @@ const StorePage: React.FC = () => {
             viewBox={`0 0 ${imgDims.width} ${imgDims.height}`}
           >
             {regions.map((region, idx) => (
-              <rect
-                key={idx}
-                x={region.bbox[0]}
-                y={region.bbox[1]}
-                width={region.bbox[2] - region.bbox[0]}
-                height={region.bbox[3] - region.bbox[1]}
-                fill={hoveredIdx === idx ? "rgba(0,87,255,0.2)" : "rgba(0,87,255,0.08)"}
-                stroke="#0057FF"
-                strokeWidth={hoveredIdx === idx ? 3 : 2}
-                onMouseEnter={() => setHoveredIdx(idx)}
-                onMouseLeave={() => setHoveredIdx(null)}
-                style={{ pointerEvents: "all", cursor: "pointer" }}
-              />
+              region.polygon && region.polygon.length > 2 ? (
+                <polygon
+                  key={idx}
+                  points={region.polygon.map(([x, y]) => `${x},${y}`).join(" ")}
+                  fill={hoveredIdx === idx ? "rgba(0,87,255,0.2)" : "rgba(0,87,255,0.08)"}
+                  stroke="#0057FF"
+                  strokeWidth={hoveredIdx === idx ? 3 : 2}
+                  onMouseEnter={() => setHoveredIdx(idx)}
+                  onMouseLeave={() => setHoveredIdx(null)}
+                  style={{ pointerEvents: "all", cursor: "pointer" }}
+                />
+              ) : (
+                <rect
+                  key={idx}
+                  x={region.bbox[0]}
+                  y={region.bbox[1]}
+                  width={region.bbox[2] - region.bbox[0]}
+                  height={region.bbox[3] - region.bbox[1]}
+                  fill={hoveredIdx === idx ? "rgba(0,87,255,0.2)" : "rgba(0,87,255,0.08)"}
+                  stroke="#0057FF"
+                  strokeWidth={hoveredIdx === idx ? 3 : 2}
+                  onMouseEnter={() => setHoveredIdx(idx)}
+                  onMouseLeave={() => setHoveredIdx(null)}
+                  style={{ pointerEvents: "all", cursor: "pointer" }}
+                />
+              )
             ))}
           </svg>
         </div>

@@ -100,7 +100,8 @@ def upload_image(file: UploadFile = File(...)) -> Dict[str, Any]:
                 "tag": tag,
                 "bbox": bbox_py,
                 "embedding": region_embedding,
-                "mask_png_b64": mask_b64
+                "mask_png_b64": mask_b64,
+                "polygon": obj.get("polygon")
             })
         logger.info("Successfully processed image_id=%s with %d regions", image_id, len(regions))
         return {
