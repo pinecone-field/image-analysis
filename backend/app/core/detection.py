@@ -4,7 +4,7 @@ import io
 import torch
 from sam2.build_sam import build_sam2  # from pip package, not local
 from sam2.sam2_image_predictor import SAM2ImagePredictor  # from pip package, not local
-from sam2.automatic_mask_generator import AutomaticMaskGenerator  # Add this import
+from sam2.automatic_mask_generator import SAM2AutomaticMaskGenerator  # Add this import
 import numpy as np
 import logging
 import traceback
@@ -39,7 +39,7 @@ def get_sam2_mask_generator():
             device = "cuda" if torch.cuda.is_available() else "cpu"
             logger.info(f"Using device for SAM2 mask generator: {device}")
             model = model.to(device)
-            get_sam2_mask_generator.generator = AutomaticMaskGenerator(model)
+            get_sam2_mask_generator.generator = SAM2AutomaticMaskGenerator(model)
         return get_sam2_mask_generator.generator
     except Exception as e:
         logger.error(f"Error loading SAM2 mask generator: {e}")
