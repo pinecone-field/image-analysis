@@ -62,6 +62,12 @@ def detect_objects(image_bytes: bytes) -> List[Dict[str, Any]]:
             # Filter out small masks
             if np.sum(mask) < 500:  # skip tiny regions
                 continue
+            # Filter out masks that cover more than 80% of the image area
+            if np.sum(mask) > 0.8 * mask.size:
+                continue
+            # Filter out masks with very high mean intensity (nearly blank/white regions)
+            if np_img is not None and np.mean(np_img[mask > 0]) > 240:
+                continue
             # Remove masks that are fully inside already used area
             if np.all(used[mask > 0]):
                 continue
@@ -72,14 +78,17 @@ def detect_objects(image_bytes: bytes) -> List[Dict[str, Any]]:
             except ValueError as e:
                 logger.warning(f"Skipping mask at idx {idx} due to shape error: {e}")
                 continue
-            # Find the largest contour (polygon) for the mask
+            # Morphological closing to smooth mask
             mask_uint8 = (mask * 255).astype(np.uint8)
-            contours, _ = cv2.findContours(mask_uint8, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            kernel = np.ones((5, 5), np.uint8)
+            mask_closed = cv2.morphologyEx(mask_uint8, cv2.MORPH_CLOSE, kernel)
+            # Find the largest contour (polygon) for the mask
+            contours, _ = cv2.findContours(mask_closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             if not contours:
                 continue
             largest_contour = max(contours, key=cv2.contourArea)
-            # Smooth the polygon using approxPolyDP
-            epsilon = 0.01 * cv2.arcLength(largest_contour, True)  # 1% of perimeter
+            # Smooth the polygon using approxPolyDP (2% of perimeter)
+            epsilon = 0.02 * cv2.arcLength(largest_contour, True)
             smoothed = cv2.approxPolyDP(largest_contour, epsilon, True)
             polygon = smoothed.squeeze().tolist()  # [[x1, y1], [x2, y2], ...]
             tag = "region"
