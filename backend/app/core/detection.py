@@ -8,15 +8,17 @@ from sam2.automatic_mask_generator import SAM2AutomaticMaskGenerator  # Add this
 import numpy as np
 import logging
 import traceback
+import cv2
 
 logger = logging.getLogger(__name__)
+
+checkpoint = "app/checkpoints/sam2.1_hiera_large.pt"
+model_cfg = "configs/sam2.1/sam2.1_hiera_l.yaml"
 
 # Load SAM2 model and predictor once
 def get_sam2_predictor():
     try:
         if not hasattr(get_sam2_predictor, "predictor"):
-            checkpoint = "/app/backend/checkpoints/sam2.1_hiera_large.pt"  # Update path as needed
-            model_cfg = "configs/sam2.1/sam2.1_hiera_l.yaml"    # Update path as needed
             logger.info(f"Loading SAM2 model from {checkpoint} with config {model_cfg}")
             model = build_sam2(model_cfg, checkpoint)
             device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -32,8 +34,6 @@ def get_sam2_predictor():
 def get_sam2_mask_generator():
     try:
         if not hasattr(get_sam2_mask_generator, "generator"):
-            checkpoint = "/app/backend/checkpoints/sam2.1_hiera_large.pt"  # Update path as needed
-            model_cfg = "configs/sam2.1/sam2.1_hiera_l.yaml"    # Update path as needed
             logger.info(f"Loading SAM2 model for mask generator from {checkpoint} with config {model_cfg}")
             model = build_sam2(model_cfg, checkpoint)
             device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -52,24 +52,38 @@ def detect_objects(image_bytes: bytes) -> List[Dict[str, Any]]:
             img = img.convert("RGB")
             np_img = np.array(img)
         generator = get_sam2_mask_generator()
-        # Use AutomaticMaskGenerator with lower thresholds to get more regions
-        masks = generator.generate(
-            np_img,
-            pred_iou_thresh=0.5,  # Lower to get more regions
-            stability_score_thresh=0.7  # Lower to get more regions
-        )
+        masks = generator.generate(np_img)
+        # Sort masks by area (descending)
+        masks = sorted(masks, key=lambda m: np.sum(m["segmentation"]), reverse=True)
+        used = np.zeros(np_img.shape[:2], dtype=bool)
         regions = []
         for idx, mask_dict in enumerate(masks):
             mask = mask_dict["segmentation"]
+            # Filter out small masks
+            if np.sum(mask) < 500:  # skip tiny regions
+                continue
+            # Remove masks that are fully inside already used area
+            if np.all(used[mask > 0]):
+                continue
+            # Mark this mask's area as used
+            used[mask > 0] = True
             try:
                 bbox = mask_to_bbox(mask)
             except ValueError as e:
                 logger.warning(f"Skipping mask at idx {idx} due to shape error: {e}")
                 continue
+            # Find the largest contour (polygon) for the mask
+            mask_uint8 = (mask * 255).astype(np.uint8)
+            contours, _ = cv2.findContours(mask_uint8, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            if not contours:
+                continue
+            largest_contour = max(contours, key=cv2.contourArea)
+            polygon = largest_contour.squeeze().tolist()  # [[x1, y1], [x2, y2], ...]
             tag = "region"
             regions.append({
                 "mask": mask,
                 "bbox": bbox,
+                "polygon": polygon,
                 "tag": tag
             })
         logger.info(f"SAM2 local: Detected {len(regions)} regions in image.")
