@@ -72,7 +72,7 @@ pinecone-plugin-interface==0.0.7
 portalocker==3.1.1
 prometheus_client==0.22.0
 propcache==0.3.1
-protobuf==5.29.4
+protobuf==5.29.5
 protoc-gen-openapiv2==0.0.1
 psutil==7.0.0
 py-cpuinfo==9.0.0
