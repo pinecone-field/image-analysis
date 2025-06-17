@@ -25,6 +25,7 @@ A modular, full-stack demo for image ingestion, embedding, segmentation, and sea
 │   ├── requirements.txt
 │   ├── Dockerfile
 │   └── download_ckpts.sh
+│   └── post-boot.sh
 ├── frontend/
 │   ├── src/
 │   ├── package.json
@@ -52,30 +53,41 @@ A modular, full-stack demo for image ingestion, embedding, segmentation, and sea
 - Backend and frontend are published as prebuilt Docker images on Docker Hub.
 - The `docker-compose.yml` references these images directly (no build context required).
 - When using Brev, provide the full path to your compose file (blob/raw URL).
-- Remove any `env_file:` lines from your compose file and set environment variables in the Brev UI.
 - Select your desired GPU type (A10, L4, A100, etc.).
 - Click "Validate" and launch your environment.
 
 ---
 
-## Manual Local Run
+## Post-Boot Setup (Launchable VM)
 
-- Clone the repo.
-- Copy `.env.example` to `.env` and fill in your keys.
-- Build and run with Docker Compose:
+After launching your VM, you must run the new post-boot script in the `backend` directory. This script installs all necessary Python modules and starts the backend app. SSH into your VM and run:
 
-  ```sh
-  docker compose up
-  ```
+```sh
+cd image-analysis/backend
+./post-boot.sh
+```
 
-- Access the frontend at [http://localhost:3000](http://localhost:3000) and backend at [http://localhost:8000](http://localhost:8000).
+## Exposing the Backend Port
+
+Once the backend is running, you need to expose port 8000 so the frontend (and your browser) can access the API. In the Launchable UI, go to your running instance and look for the port exposure section. You can choose to expose the port to all IPs or just your own IP. Use your best judgment for security.
+
+![Launchable Port Exposure](./docs/launchable-port-exposure.png)
+
+## Updating Frontend Environment Variables
+
+Each time you launch a new VM, the public IP address may change. You must update the frontend environment variable `REACT_APP_BACKEND_API` to point to the new backend API address. You can find the current IP address on the Launchable GPU page for your instance. Example:
+
+```sh
+REACT_APP_BACKEND_API=http://<YOUR_VM_IP>:8000
+```
+
+Update this in your `.env` or environment variable configuration before starting the frontend.
 
 ---
 
 ## Environment Variables
 
 - See `.env.example` for required variables.
-- When using Brev, set these in the Launchable UI.
 
 ---
 

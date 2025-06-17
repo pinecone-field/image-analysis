@@ -5,6 +5,7 @@ from pinecone import ServerlessSpec
 import itertools
 import logging
 import traceback
+from app.core.embeddings import extract_embeddings
 
 # Initialize Pinecone client and index
 _pinecone_index = None
@@ -15,8 +16,8 @@ def get_pinecone_index():
         global _pinecone_index
         if _pinecone_index is None:
             logger.info("Initializing Pinecone client and index...")
-            pc = Pinecone(api_key=config.PINECONE_API_KEY, environment=config.PINECONE_ENV)
-            if config.PINECONE_INDEX not in pc.list_indexes():
+            pc = Pinecone(api_key=config.PINECONE_API_KEY)
+            if config.PINECONE_INDEX not in [idx["name"] for idx in pc.list_indexes()]:
                 logger.info(f"Creating Pinecone index: {config.PINECONE_INDEX}")
                 spec = ServerlessSpec(
                     cloud=config.PINECONE_CLOUD or "aws",
@@ -24,7 +25,7 @@ def get_pinecone_index():
                 )
                 pc.create_index(
                     config.PINECONE_INDEX,
-                    dimension=1024,
+                    dimension=512,
                     metric="cosine",
                     spec=spec
                 )
@@ -71,11 +72,15 @@ def index_embeddings(
         logger.error(traceback.format_exc())
         raise
 
-def search_index(query_embedding: List[float], top_k: int = 5) -> List[Dict[str, Any]]:
+def search_index(query, top_k: int = 5) -> List[Dict[str, Any]]:
     """
-    Search Pinecone for similar embeddings.
+    Search Pinecone for similar embeddings. Accepts either an embedding (list of floats) or image bytes.
     """
     try:
+        if isinstance(query, bytes):
+            query_embedding = extract_embeddings(query)
+        else:
+            query_embedding = query
         index = get_pinecone_index()
         logger.info(f"Searching Pinecone index for top_k={top_k}")
         results = index.query(vector=query_embedding, top_k=top_k, include_metadata=True)

@@ -1,10 +1,15 @@
-version: '3.8'
-
 services:
   backend:
     image: corypinecone/image-analysis-backend:latest
     ports:
       - "8000:8000"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     environment:
       - PINECONE_API_KEY
       - PINECONE_CLOUD
