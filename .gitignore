@@ -36,3 +36,6 @@ uploads/
 
 # Sam2 checkpoints
 **/checkpoints/*.pt
+
+# Local image storage
+images/
