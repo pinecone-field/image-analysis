@@ -1,9 +1,8 @@
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from typing import List, Dict, Any
-from app.models.schemas import ImageUploadResponse, SearchResult
 from app.core.embeddings import extract_embeddings, generate_caption
 from app.core.detection import detect_objects, crop_region_with_mask, ensure_2d_mask
-from app.core.pinecone import index_embedding
+from app.core.pinecone import index_embeddings, get_pinecone_index
 from datetime import datetime
 import uuid
 import base64
@@ -64,20 +63,22 @@ def upload_image(file: UploadFile = File(...)) -> Dict[str, Any]:
         objects = detect_objects(image_bytes)
         object_tags = [obj["tag"] for obj in objects]
         upload_time = datetime.utcnow()
-        logger.info("Indexing full image embedding for image_id=%s", image_id)
-        index_embedding(
-            embedding=embedding,
-            metadata={
-                "image_id": image_id,
-                "caption": caption,
-                "object_tags": object_tags,
-                "upload_time": upload_time.isoformat(),
-                "type": "full_image",
-                "filename": filename,
-                "image_path": image_save_path
-            },
-            vector_id=image_save_path
-        )
+        # --- BATCH EMBEDDING COLLECTION ---
+        all_embeddings = []
+        all_ids = []
+        all_metadatas = []
+        # Full image
+        all_embeddings.append(embedding)
+        all_ids.append(image_save_path)
+        all_metadatas.append({
+            "image_id": image_id,
+            "caption": caption,
+            "object_tags": object_tags,
+            "upload_time": upload_time.isoformat(),
+            "type": "full_image",
+            "filename": filename,
+            "image_path": image_save_path
+        })
         regions = []
         logger.info(f"Detected {len(objects)} regions for image_id={image_id}")
         for idx, obj in enumerate(objects):
@@ -109,22 +110,20 @@ def upload_image(file: UploadFile = File(...)) -> Dict[str, Any]:
                     return val
                 return float(val)
             bbox_py = to_py_number(bbox)
-            logger.info("Indexing region %d embedding for image_id=%s", idx, image_id)
             region_vector_id = f"{image_save_path}#region_{idx}"
-            index_embedding(
-                embedding=region_embedding,
-                metadata={
-                    "image_id": image_id,
-                    "region_idx": int(idx),
-                    "caption": caption,
-                    "object_tag": tag,
-                    "upload_time": upload_time.isoformat(),
-                    "type": "region",
-                    "filename": filename,
-                    "image_path": image_save_path
-                },
-                vector_id=region_vector_id
-            )
+            # --- BATCH EMBEDDING ADD ---
+            all_embeddings.append(region_embedding)
+            all_ids.append(region_vector_id)
+            all_metadatas.append({
+                "image_id": image_id,
+                "region_idx": int(idx),
+                "caption": caption,
+                "object_tag": tag,
+                "upload_time": upload_time.isoformat(),
+                "type": "region",
+                "filename": filename,
+                "image_path": image_save_path
+            })
             region_dict = {
                 "tag": tag,
                 "bbox": bbox_py,
@@ -156,6 +155,9 @@ def upload_image(file: UploadFile = File(...)) -> Dict[str, Any]:
                     "semantic_label": "full_image"
                 }
                 regions.append(region_dict)
+        # --- BATCH UPSERT ---
+        logger.info(f"Batch upserting {len(all_embeddings)} vectors to Pinecone for image_id={image_id}")
+        index_embeddings(all_embeddings, all_ids, all_metadatas)
         # Add base64-encoded PNG of the uploaded image for frontend display
         img = PILImage.open(io.BytesIO(image_bytes)).convert("RGB")
         buf = io.BytesIO()
@@ -184,12 +186,6 @@ def search_images(mask_png_b64: str = None, bbox: list = None, file: UploadFile 
     Search for similar images/regions by region mask or image or text query.
     """
     try:
-        from app.core.embeddings import extract_embeddings
-        from app.core.pinecone import index_embedding
-        import base64
-        import io
-        from PIL import Image as PILImage
-        import numpy as np
         # If mask_png_b64 and bbox are provided, extract region embedding
         if mask_png_b64 and bbox:
             mask_bytes = base64.b64decode(mask_png_b64)
@@ -202,7 +198,6 @@ def search_images(mask_png_b64: str = None, bbox: list = None, file: UploadFile 
             region_bytes = buf.getvalue()
             embedding = extract_embeddings(region_bytes)
             # Search Pinecone for similar regions
-            from app.core.pinecone import index_embedding, get_pinecone_index
             index = get_pinecone_index()
             results = index.query(vector=embedding, top_k=10, include_metadata=True)
             # Ensure all matches are dicts
