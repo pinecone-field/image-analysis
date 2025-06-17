@@ -6,8 +6,10 @@ cd backend
 
 python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
 
-echo -n "Please enter your Pinecone API key: "
-read PINECONE_API_KEY
+if [[ -z "$PINECONE_API_KEY" ]]; then
+    echo -n "Please enter your Pinecone API key: "
+    read PINECONE_API_KEY
+fi
 
 export PINECONE_API_KEY=$PINECONE_API_KEY
 
