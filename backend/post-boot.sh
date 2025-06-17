@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 
+set -x
+
 cd backend
 
-alias python=python3
-alias pip=pip3
-
-python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
+python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
 
 echo -n "Please enter your Pinecone API key: "
 read PINECONE_API_KEY
