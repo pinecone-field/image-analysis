@@ -4,7 +4,10 @@ if [[ "$DEBUG" == "true" ]]; then
     set -x
 fi
 
-cd backend || echo "Error: Could not cd to backend directory, are you in the correct directory?" && exit 1
+if [[ $(pwd) != *"backend"* ]]; then
+    cd backend || { echo "Error: Could not cd to backend directory, are you in the correct directory?"; exit 1; }
+fi
+
 
 if [[ -z "$PINECONE_API_KEY" ]]; then
     echo -n "Please enter your Pinecone API key: "
@@ -16,7 +19,7 @@ echo "Creating virtual environment..."
 if [[ ! -d ".venv" ]]; then 
     python3 -m venv .venv 
 fi
-source .venv/bin/activate && pip install -r requirements.txt
+source .venv/bin/activate && pip install -U pip && pip install -r requirements.txt
 
 echo "Installing checkpoints..."
 CHECKPOINT_DIR="app/checkpoints"
