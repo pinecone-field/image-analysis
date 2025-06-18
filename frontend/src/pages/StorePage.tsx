@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import axios from "axios";
+import { queryVectors, upsertVectors } from '../api';
 
 interface Region {
   tag: string;
@@ -7,6 +8,9 @@ interface Region {
   mask_png_b64: string;
   polygon?: number[][];
   semantic_label?: string;
+  region_idx?: number;
+  embedding?: number[];
+  caption?: string;
 }
 
 const StorePage: React.FC = () => {
@@ -23,20 +27,26 @@ const StorePage: React.FC = () => {
   // Similarity search state
   const [searchingIdx, setSearchingIdx] = useState<number | null>(null);
   const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [regionSearchRegion, setRegionSearchRegion] = useState<Region | null>(null);
+
   const handleRegionClick = async (region: Region, idx: number) => {
     setSearchingIdx(idx);
     setStatus("Searching for similar regions...");
     setErrorDetails("");
     setSearchResults([]);
+    setRegionSearchRegion(region);
     try {
-      const url = `${process.env.REACT_APP_BACKEND_API}/api/images/search`;
-      const response = await axios.post(url, {
-        mask_png_b64: region.mask_png_b64,
-        bbox: region.bbox,
-      });
+      // Use the region's embedding for search
+      if (!region.embedding) {
+        setStatus("No embedding available for this region.");
+        setSearchingIdx(null);
+        return;
+      }
+      setStatus("Querying Pinecone for similar regions...");
+      const results = await queryVectors(region.embedding, 12);
       setStatus("Similarity search complete!");
-      setSearchResults(response.data || []);
-      console.log("[Similarity Search] Results:", response.data);
+      setSearchResults(results.matches || results.results || []);
+      console.log("[Similarity Search] Results:", results);
     } catch (err: any) {
       setStatus("Error during similarity search.");
       setErrorDetails(err.message);
@@ -93,33 +103,51 @@ const StorePage: React.FC = () => {
   const handleUpload = async () => {
     if (!file) return;
     setDuplicateInfo(null);
+    setStatus('Uploading to backend for processing...');
+    setErrorDetails("");
     const formData = new FormData();
     formData.append("file", file);
-    setStatus("Uploading...");
-    setErrorDetails("");
     const url = `${process.env.REACT_APP_BACKEND_API}/api/images/upload`;
-    console.log("[StorePage] POST", url, formData);
     try {
+      // Step 1: Upload to backend for embedding/caption/region extraction
       const response = await axios.post(url, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      console.log("[StorePage] Response:", response);
-      if (response.data.duplicate) {
+      const { image, regions } = response.data;
+      setStatus('Checking for duplicates in Pinecone...');
+      // Step 2: Duplicate check (only full image embedding)
+      const dupResults = await queryVectors(image.embedding, 5);
+      const duplicates = (dupResults.matches || dupResults.results || dupResults)?.filter((m: any) => m.score > 0.999);
+      if (duplicates && duplicates.length > 0) {
         setDuplicateInfo({
-          message: '', // No backend message, handled in UI
-          similar_images: response.data.similar_images || []
+          message: 'Duplicate detected! Please verify.',
+          similar_images: duplicates.map((d: any) => d.id)
         });
-        setStatus("I think I've seen this one before");
+        setStatus('Duplicate detected!');
         setRegions([]);
-        // Show the just-uploaded image using the local file preview
         setJustUploaded(URL.createObjectURL(file));
         setImageUrl("");
         return;
       }
-      setStatus("Stored successfully!");
-      setRegions(response.data.regions || []);
-      if (response.data.image && response.data.image.image_png_b64) {
-        setImageUrl(`data:image/png;base64,${response.data.image.image_png_b64}`);
+      setStatus('No duplicate found. Upserting to Pinecone...');
+      // Step 3: Batch upsert full image and all regions
+      const vectors = [
+        {
+          id: image.image_path,
+          values: image.embedding,
+          metadata: { ...image, embedding: undefined, image_png_b64: undefined }
+        },
+        ...regions.map((region: Region, idx: number) => ({
+          id: `${image.image_path}#region_${region.region_idx ?? idx}`,
+          values: region.embedding,
+          metadata: { ...region, embedding: undefined, mask_png_b64: undefined }
+        }))
+      ];
+      await upsertVectors(vectors);
+      setStatus('Stored successfully!');
+      setRegions(regions || []);
+      if (image && image.image_png_b64) {
+        setImageUrl(`data:image/png;base64,${image.image_png_b64}`);
       }
     } catch (err: any) {
       let details = "";
@@ -330,18 +358,33 @@ const StorePage: React.FC = () => {
           </svg>
         </div>
       )}
-      {/* Similarity search results */}
-      {searchResults.length > 0 && (
-        <div style={{ marginTop: 24 }}>
-          <h3 style={{ color: "#0057FF", fontWeight: 700 }}>Similarity Search Results</h3>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginTop: 12 }}>
+      {/* Similarity search results for region-based search */}
+      {regionSearchRegion && searchResults.length > 0 && (
+        <div style={{ marginTop: 32 }}>
+          <h3 style={{ color: "#0057FF", fontWeight: 700 }}>Region-Based Similarity Search</h3>
+          <div style={{ textAlign: "center", marginBottom: 16 }}>
+            <div style={{ fontSize: 13, color: "#0057FF", fontWeight: 700, marginBottom: 4 }}>Cropped Region</div>
+            {regionSearchRegion.mask_png_b64 && (
+              <img
+                src={`data:image/png;base64,${regionSearchRegion.mask_png_b64}`}
+                alt="Region"
+                style={{ maxWidth: 140, borderRadius: 8, border: "2px solid #0057FF", background: "#fff" }}
+              />
+            )}
+            {regionSearchRegion.caption && (
+              <div style={{ fontSize: 13, color: "#0057FF", marginTop: 4 }}>{regionSearchRegion.caption}</div>
+            )}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginTop: 12 }}>
             {searchResults.map((result, idx) => (
               <div key={idx} style={{ border: "1px solid #eee", borderRadius: 8, padding: 8, background: "#fafbfc" }}>
                 <div>Score: {result.score?.toFixed(3)}</div>
                 <div>Id: {result.id}</div>
-                {/* Optionally show image if available in metadata */}
                 {result.metadata?.image_path && (
                   <img src={`/images/${result.metadata.image_path.split('/').pop()}`} alt="Result" style={{ maxWidth: 120, borderRadius: 8, marginTop: 4 }} />
+                )}
+                {result.metadata?.caption && (
+                  <div style={{ fontSize: 13, color: "#0057FF", marginTop: 4 }}>{result.metadata.caption}</div>
                 )}
               </div>
             ))}
