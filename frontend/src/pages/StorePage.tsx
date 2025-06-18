@@ -11,6 +11,7 @@ interface Region {
   region_idx?: number;
   embedding?: number[];
   caption?: string;
+  region_png_url?: string;
 }
 
 const StorePage: React.FC = () => {
@@ -29,21 +30,85 @@ const StorePage: React.FC = () => {
   const [regionSearchRegion, setRegionSearchRegion] = useState<Region | null>(null);
 
   const handleRegionClick = async (region: Region, idx: number) => {
-    setStatus("Searching for similar regions...");
+    setStatus("Cropping region and recomputing embedding...");
     setErrorDetails("");
     setSearchResults([]);
     setRegionSearchRegion(region);
     try {
-      // Use the region's embedding for search
-      if (!region.embedding) {
-        setStatus("No embedding available for this region.");
+      // Get the displayed image element
+      const imgEl = document.querySelector('img[alt="Uploaded"]') as HTMLImageElement;
+      if (!imgEl) {
+        setStatus("Could not find uploaded image element.");
         return;
       }
+      // Create a canvas to crop the region
+      const canvas = document.createElement('canvas');
+      const [x0, y0, x1, y1] = region.bbox;
+      const width = x1 - x0;
+      const height = y1 - y0;
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        setStatus("Could not get canvas context.");
+        return;
+      }
+      // Draw the image region
+      ctx.drawImage(imgEl, x0, y0, width, height, 0, 0, width, height);
+      // If mask is present, apply it as alpha
+      if (region.mask_png_b64) {
+        const maskImg = new window.Image();
+        maskImg.src = `data:image/png;base64,${region.mask_png_b64}`;
+        await new Promise(resolve => { maskImg.onload = resolve; });
+        // Draw mask to get alpha channel
+        const maskCanvas = document.createElement('canvas');
+        maskCanvas.width = width;
+        maskCanvas.height = height;
+        const maskCtx = maskCanvas.getContext('2d');
+        if (maskCtx) {
+          maskCtx.drawImage(maskImg, 0, 0, width, height);
+          const maskData = maskCtx.getImageData(0, 0, width, height);
+          const regionData = ctx.getImageData(0, 0, width, height);
+          // Set alpha channel from mask
+          for (let i = 0; i < maskData.data.length; i += 4) {
+            regionData.data[i + 3] = maskData.data[i]; // Use red channel as alpha
+          }
+          ctx.putImageData(regionData, 0, 0);
+        }
+      }
+      // Convert canvas to blob
+      const blob: Blob = await new Promise(resolve => canvas.toBlob(resolve as any, 'image/png'));
+      // Debug: show cropped region
+      console.log('[Region Search] Cropped region blob:', blob);
+      // Send as file to backend
+      const formData = new FormData();
+      formData.append('file', new File([blob], 'region.png', { type: 'image/png' }));
+      const backendUrl = `${process.env.REACT_APP_BACKEND_API}/api/images/search`;
+      const res = await axios.post(backendUrl, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      const embedding = res.data.embedding;
+      if (!embedding) {
+        setStatus("No embedding returned for this region.");
+        return;
+      }
+      console.log("[Region Search] Embedding sent to Pinecone:", embedding);
       setStatus("Querying Pinecone for similar regions...");
-      const results = await queryVectors(region.embedding, 12);
+      let results = await queryVectors(embedding, 12);
+      let matches = results.matches || [];
+      // Uniqueness filter: only keep highest scoring result per image_path
+      const uniqueByImage: { [key: string]: any } = {};
+      for (const match of matches) {
+        const imgPath = match.metadata?.image_path;
+        if (!imgPath) continue;
+        if (!uniqueByImage[imgPath] || (match.score > uniqueByImage[imgPath].score)) {
+          uniqueByImage[imgPath] = match;
+        }
+      }
+      const uniqueResults = Object.values(uniqueByImage);
       setStatus("Similarity search complete!");
-      setSearchResults(results.matches || []);
-      console.log("[Similarity Search] Results:", results);
+      setSearchResults(uniqueResults);
+      console.log("[Similarity Search] Results:", uniqueResults);
     } catch (err: any) {
       setStatus("Error during similarity search.");
       setErrorDetails(err.message);
@@ -54,9 +119,28 @@ const StorePage: React.FC = () => {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setFile(e.target.files[0]);
-      setImageUrl(URL.createObjectURL(e.target.files[0]));
+      const selected = e.target.files[0];
+      // File type detection
+      const allowedTypes = [
+        'image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/bmp'
+      ];
+      if (!allowedTypes.includes(selected.type)) {
+        setErrorDetails('Incompatible file type, please use JPEG, PNG, WEBP, GIF, or BMP.');
+        setFile(null);
+        setImageUrl("");
+        setRegions([]);
+        setStatus("");
+        setSearchResults([]);
+        setRegionSearchRegion(null);
+        return;
+      }
+      setFile(selected);
+      setImageUrl(URL.createObjectURL(selected));
       setRegions([]);
+      setStatus("");
+      setSearchResults([]);
+      setRegionSearchRegion(null);
+      setErrorDetails("");
     }
   };
 
@@ -94,6 +178,43 @@ const StorePage: React.FC = () => {
       setJustUploaded(imageUrl);
     }
   }, [imageUrl, status]);
+
+  // Helper to crop a region and return a data URL
+  async function cropRegionToDataUrl(imgUrl: string, bbox: number[], mask_png_b64?: string): Promise<string> {
+    return new Promise(async (resolve) => {
+      const img = new window.Image();
+      img.src = imgUrl;
+      await new Promise(r => { img.onload = r; });
+      const [x0, y0, x1, y1] = bbox;
+      const width = x1 - x0;
+      const height = y1 - y0;
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return resolve('');
+      ctx.drawImage(img, x0, y0, width, height, 0, 0, width, height);
+      if (mask_png_b64) {
+        const maskImg = new window.Image();
+        maskImg.src = `data:image/png;base64,${mask_png_b64}`;
+        await new Promise(r => { maskImg.onload = r; });
+        const maskCanvas = document.createElement('canvas');
+        maskCanvas.width = width;
+        maskCanvas.height = height;
+        const maskCtx = maskCanvas.getContext('2d');
+        if (maskCtx) {
+          maskCtx.drawImage(maskImg, 0, 0, width, height);
+          const maskData = maskCtx.getImageData(0, 0, width, height);
+          const regionData = ctx.getImageData(0, 0, width, height);
+          for (let i = 0; i < maskData.data.length; i += 4) {
+            regionData.data[i + 3] = maskData.data[i];
+          }
+          ctx.putImageData(regionData, 0, 0);
+        }
+      }
+      resolve(canvas.toDataURL('image/png'));
+    });
+  }
 
   const handleUpload = async () => {
     if (!file) return;
@@ -140,7 +261,13 @@ const StorePage: React.FC = () => {
       ];
       await upsertVectors(vectors);
       setStatus('Stored successfully!');
-      setRegions(regions || []);
+      // Generate PNGs for each region and store as data URLs
+      const imgUrl = image && image.image_png_b64 ? `data:image/png;base64,${image.image_png_b64}` : imageUrl;
+      const regionsWithPng = await Promise.all((regions || []).map(async (region: Region) => {
+        const region_png_url = await cropRegionToDataUrl(imgUrl, region.bbox, region.mask_png_b64);
+        return { ...region, region_png_url };
+      }));
+      setRegions(regionsWithPng);
       if (image && image.image_png_b64) {
         setImageUrl(`data:image/png;base64,${image.image_png_b64}`);
       }
@@ -170,7 +297,7 @@ const StorePage: React.FC = () => {
 
   return (
     <div style={{
-      maxWidth: 500,
+      maxWidth: 900,
       margin: "3rem auto",
       padding: "2rem",
       background: "#fff",
@@ -188,7 +315,16 @@ const StorePage: React.FC = () => {
         />
         <button
           type="button"
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => {
+            setFile(null);
+            setImageUrl("");
+            setRegions([]);
+            setStatus("");
+            setSearchResults([]);
+            setRegionSearchRegion(null);
+            setErrorDetails("");
+            fileInputRef.current?.click();
+          }}
           style={{
             background: "#0057FF",
             color: "#fff",
@@ -359,9 +495,9 @@ const StorePage: React.FC = () => {
           <h3 style={{ color: "#0057FF", fontWeight: 700 }}>Region-Based Similarity Search</h3>
           <div style={{ textAlign: "center", marginBottom: 16 }}>
             <div style={{ fontSize: 13, color: "#0057FF", fontWeight: 700, marginBottom: 4 }}>Cropped Region</div>
-            {regionSearchRegion.mask_png_b64 && (
+            {regionSearchRegion.region_png_url && (
               <img
-                src={`data:image/png;base64,${regionSearchRegion.mask_png_b64}`}
+                src={regionSearchRegion.region_png_url}
                 alt="Region"
                 style={{ maxWidth: 140, borderRadius: 8, border: "2px solid #0057FF", background: "#fff" }}
               />
@@ -376,7 +512,7 @@ const StorePage: React.FC = () => {
                 <div>Score: {result.score?.toFixed(3)}</div>
                 <div>Id: {result.id}</div>
                 {result.metadata?.image_path && (
-                  <img src={`/images/${result.metadata.image_path.split('/').pop()}`} alt="Result" style={{ maxWidth: 120, borderRadius: 8, marginTop: 4 }} />
+                  <img src={`${process.env.REACT_APP_BACKEND_API?.replace(/\/$/, '') || ''}/images/${result.metadata.image_path.split('/').pop()}`} alt="Result" style={{ maxWidth: 120, borderRadius: 8, marginTop: 4 }} />
                 )}
                 {result.metadata?.caption && (
                   <div style={{ fontSize: 13, color: "#0057FF", marginTop: 4 }}>{result.metadata.caption}</div>
