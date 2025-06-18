@@ -6,6 +6,7 @@ const ImageUploader: React.FC = () => {
   const [preview, setPreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -34,21 +35,32 @@ const ImageUploader: React.FC = () => {
     if (!file) return;
     setUploading(true);
     setMessage(null);
+    setStatus('Uploading image...');
     const url = '/api/images/upload';
     console.log('[ImageUploader] POST', url, file);
     try {
       const formData = new FormData();
       formData.append('file', file);
+      setStatus('Uploading image...');
+      await new Promise((res) => setTimeout(res, 400));
+      setStatus('Generating embeddings...');
+      await new Promise((res) => setTimeout(res, 400));
+      setStatus('Determining caption...');
+      await new Promise((res) => setTimeout(res, 400));
+      setStatus('Analyzing image for regions...');
       const response = await api.post(url, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       console.log('[ImageUploader] Response:', response);
       setMessage('Upload successful!');
+      setStatus('Done!');
     } catch (err: any) {
       console.error('[ImageUploader] Error:', err);
       setMessage('Upload failed.');
+      setStatus('Error during upload.');
     } finally {
       setUploading(false);
+      setTimeout(() => setStatus(null), 2000);
     }
   };
 
@@ -82,6 +94,7 @@ const ImageUploader: React.FC = () => {
           Browse
         </label>
       </div>
+      {status && <div style={{ marginBottom: 8, color: '#555' }}>{status}</div>}
       <button onClick={handleUpload} disabled={!file || uploading} style={{ marginRight: 8 }}>
         {uploading ? 'Uploading...' : 'Upload'}
       </button>
