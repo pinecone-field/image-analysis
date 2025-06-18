@@ -25,12 +25,10 @@ const StorePage: React.FC = () => {
   const uniqueLabels = Array.from(new Set(regions.map(r => r.semantic_label).filter(Boolean)));
 
   // Similarity search state
-  const [searchingIdx, setSearchingIdx] = useState<number | null>(null);
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [regionSearchRegion, setRegionSearchRegion] = useState<Region | null>(null);
 
   const handleRegionClick = async (region: Region, idx: number) => {
-    setSearchingIdx(idx);
     setStatus("Searching for similar regions...");
     setErrorDetails("");
     setSearchResults([]);
@@ -39,21 +37,18 @@ const StorePage: React.FC = () => {
       // Use the region's embedding for search
       if (!region.embedding) {
         setStatus("No embedding available for this region.");
-        setSearchingIdx(null);
         return;
       }
       setStatus("Querying Pinecone for similar regions...");
       const results = await queryVectors(region.embedding, 12);
       setStatus("Similarity search complete!");
-      setSearchResults(results.matches || results.results || []);
+      setSearchResults(results.matches || []);
       console.log("[Similarity Search] Results:", results);
     } catch (err: any) {
       setStatus("Error during similarity search.");
       setErrorDetails(err.message);
       setSearchResults([]);
       console.error("[Similarity Search] Error:", err);
-    } finally {
-      setSearchingIdx(null);
     }
   };
 
@@ -117,7 +112,7 @@ const StorePage: React.FC = () => {
       setStatus('Checking for duplicates in Pinecone...');
       // Step 2: Duplicate check (only full image embedding)
       const dupResults = await queryVectors(image.embedding, 5);
-      const duplicates = (dupResults.matches || dupResults.results || dupResults)?.filter((m: any) => m.score > 0.999);
+      const duplicates = (dupResults.matches || dupResults)?.filter((m: any) => m.score > 0.999);
       if (duplicates && duplicates.length > 0) {
         setDuplicateInfo({
           message: 'Duplicate detected! Please verify.',

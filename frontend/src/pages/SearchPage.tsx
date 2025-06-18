@@ -44,7 +44,7 @@ const SearchPage: React.FC = () => {
       setStatus("Searching Pinecone for similar images...");
       // Step 2: Query Pinecone
       const pineconeRes = await queryVectors(embedding, 12);
-      setSearchResults(pineconeRes.matches || pineconeRes.results || []);
+      setSearchResults(pineconeRes.matches || []);
       setStatus("Search complete.");
     } catch (err) {
       console.error("[SearchPage] Error:", err);
