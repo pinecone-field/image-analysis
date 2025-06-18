@@ -3,7 +3,7 @@ from PIL import Image
 import io
 import numpy as np
 import torch
-from transformers import CLIPProcessor, CLIPModel
+from transformers import CLIPProcessor, CLIPModel, BlipProcessor, BlipForConditionalGeneration
 import logging
 import traceback
 
@@ -48,6 +48,27 @@ def extract_embeddings(image_bytes: bytes) -> List[float]:
 
 def generate_caption(image_bytes: bytes) -> str:
     """
-    Stub: You can use BLIP, LLaVA, or any captioning model here.
+    Generate a caption for the given image bytes using BLIP (runs locally).
     """
-    return "A stub caption."
+    try:
+        if not hasattr(generate_caption, "model"):
+            logger.info("Loading BLIP model and processor for image captioning...")
+            generate_caption.processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
+            generate_caption.model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
+            generate_caption.device = "cuda" if torch.cuda.is_available() else "cpu"
+            generate_caption.model.to(generate_caption.device)
+        processor = generate_caption.processor
+        model = generate_caption.model
+        device = generate_caption.device
+        with Image.open(io.BytesIO(image_bytes)) as img:
+            img = img.convert("RGB")
+        inputs = processor(img, return_tensors="pt").to(device)
+        with torch.no_grad():
+            out = model.generate(**inputs)
+            caption = processor.decode(out[0], skip_special_tokens=True)
+        logger.info(f"Generated caption: {caption}")
+        return caption
+    except Exception as e:
+        logger.error(f"Error generating caption: {e}")
+        logger.error(traceback.format_exc())
+        return "A descriptive image."  # fallback caption

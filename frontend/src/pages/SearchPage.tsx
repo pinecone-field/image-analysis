@@ -1,5 +1,6 @@
 import React, { useState, useRef } from "react";
 import axios from "axios";
+import { queryVectors } from '../api';
 
 interface DetectedObject {
   id: string;
@@ -13,6 +14,7 @@ const SearchPage: React.FC = () => {
   const [objects, setObjects] = useState<DetectedObject[]>([]);
   const [status, setStatus] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -26,19 +28,27 @@ const SearchPage: React.FC = () => {
     if (!file) return;
     const formData = new FormData();
     formData.append("file", file);
-    setStatus("Processing...");
+    setStatus("Generating embedding...");
+    setSearchResults([]);
     const url = `${process.env.REACT_APP_BACKEND_API}/api/images/search`;
-    console.log("[SearchPage] POST", url, formData);
     try {
+      // Step 1: Get embedding from backend
       const res = await axios.post(url, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      console.log("[SearchPage] Response:", res);
-      setObjects(res.data.objects || []);
-      setStatus("Objects detected. Click to search by object.");
+      const embedding = res.data.embedding;
+      if (!embedding) {
+        setStatus("No embedding returned from backend.");
+        return;
+      }
+      setStatus("Searching Pinecone for similar images...");
+      // Step 2: Query Pinecone
+      const pineconeRes = await queryVectors(embedding, 12);
+      setSearchResults(pineconeRes.matches || []);
+      setStatus("Search complete.");
     } catch (err) {
       console.error("[SearchPage] Error:", err);
-      setStatus("Error processing image.");
+      setStatus("Error processing image or searching.");
     }
   };
 
@@ -126,6 +136,25 @@ const SearchPage: React.FC = () => {
               >
                 Object {idx + 1}
               </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {searchResults.length > 0 && (
+        <div style={{ marginTop: 24 }}>
+          <h3 style={{ color: "#0057FF", fontWeight: 700 }}>Search Results</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginTop: 12 }}>
+            {searchResults.map((result, idx) => (
+              <div key={idx} style={{ border: "1px solid #eee", borderRadius: 8, padding: 8, background: "#fafbfc" }}>
+                <div>Score: {result.score?.toFixed(3)}</div>
+                <div>Id: {result.id}</div>
+                {result.metadata?.image_path && (
+                  <img src={`/images/${result.metadata.image_path.split('/').pop()}`} alt="Result" style={{ maxWidth: 120, borderRadius: 8, marginTop: 4 }} />
+                )}
+                {result.metadata?.caption && (
+                  <div style={{ fontSize: 13, color: "#0057FF", marginTop: 4 }}>{result.metadata.caption}</div>
+                )}
+              </div>
             ))}
           </div>
         </div>
