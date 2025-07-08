@@ -2,7 +2,7 @@ from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from typing import List, Dict, Any
 from app.core.embeddings import extract_embeddings, generate_caption
 from app.core.detection import detect_objects, crop_region_with_mask, ensure_2d_mask
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 import base64
 import numpy as np
@@ -11,6 +11,7 @@ import traceback
 import os
 from PIL import Image as PILImage
 import io
+import time
 
 router = APIRouter()
 
@@ -28,6 +29,7 @@ def upload_image(file: UploadFile = File(...)) -> Dict[str, Any]:
     Upload an image, generate embedding/caption, and return all metadata and embeddings to the frontend.
     """
     try:
+        start_time = time.time()
         logger.info("Received image upload request: %s", file.filename)
         image_bytes = file.file.read()
         image_id = str(uuid.uuid4())
@@ -37,14 +39,27 @@ def upload_image(file: UploadFile = File(...)) -> Dict[str, Any]:
         with open(image_save_path, "wb") as f:
             f.write(image_bytes)
         logger.info(f"Saved image to {image_save_path}")
-        logger.info("Generating caption for image_id=%s", image_id)
+
+        t_caption_start = time.time()
+        logger.info("[Timing] Start generating caption for image_id=%s", image_id)
         caption = generate_caption(image_bytes)
-        logger.info("Generating embedding for image_id=%s", image_id)
+        t_caption_end = time.time()
+        logger.info("[Timing] Finished generating caption for image_id=%s (%.3f seconds)", image_id, t_caption_end - t_caption_start)
+
+        t_emb_start = time.time()
+        logger.info("[Timing] Start generating embeddings for image_id=%s", image_id)
         embedding = extract_embeddings(image_bytes)
-        logger.info("Detecting objects/regions for image_id=%s", image_id)
+        t_emb_end = time.time()
+        logger.info("[Timing] Finished generating embeddings for image_id=%s (%.3f seconds)", image_id, t_emb_end - t_emb_start)
+
+        t_detect_start = time.time()
+        logger.info("[Timing] Start detecting objects/regions for image_id=%s", image_id)
         objects = detect_objects(image_bytes)
+        t_detect_end = time.time()
+        logger.info("[Timing] Finished detecting objects/regions for image_id=%s (%.3f seconds)", image_id, t_detect_end - t_detect_start)
+
         object_tags = [obj["tag"] for obj in objects]
-        upload_time = datetime.utcnow()
+        upload_time = datetime.now(timezone.utc)
         # Full image metadata
         image_metadata = {
             "image_id": image_id,
@@ -139,7 +154,8 @@ def upload_image(file: UploadFile = File(...)) -> Dict[str, Any]:
         buf = io.BytesIO()
         img.save(buf, format="PNG")
         image_png_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
-        logger.info("Successfully processed image_id=%s with %d regions", image_id, len(regions))
+        total_time = time.time() - start_time
+        logger.info("Successfully processed image_id=%s with %d regions. Total time: %.3f seconds", image_id, len(regions), total_time)
         return {
             "image": image_metadata,
             "regions": regions

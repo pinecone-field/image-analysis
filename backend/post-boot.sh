@@ -8,13 +8,6 @@ if [[ $(pwd) != *"backend"* ]]; then
     cd backend || { echo "Error: Could not cd to backend directory, are you in the correct directory?"; exit 1; }
 fi
 
-
-if [[ -z "$PINECONE_API_KEY" ]]; then
-    echo -n "Please enter your Pinecone API key: "
-    read PINECONE_API_KEY
-fi
-export PINECONE_API_KEY=$PINECONE_API_KEY
-
 echo "Creating virtual environment..."
 if [[ ! -d ".venv" ]]; then 
     python3 -m venv .venv 
