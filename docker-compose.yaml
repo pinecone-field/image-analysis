@@ -11,10 +11,5 @@ services:
               count: all
               capabilities: [gpu]
     environment:
-      - PINECONE_API_KEY
-      - PINECONE_CLOUD
-      - PINECONE_REGION
-      - PINECONE_INDEX_NAME
-      - CLIP_MODEL_PATH
-      - NIM_API_KEY
+      - CLIP_MODEL_PATH="openai/clip-vit-base-patch32"
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
