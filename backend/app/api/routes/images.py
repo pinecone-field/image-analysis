@@ -16,7 +16,6 @@ import time
 router = APIRouter()
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 IMAGES_DIR = "images"
@@ -218,23 +217,3 @@ def list_images():
         logger.error("Exception during list_images: %s", e)
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"List failed: {e}")
-
-@router.get("/meta")
-def get_image_meta(id: str):
-    """
-    Return metadata for a given image vector ID (image_path).
-    """
-    # Pinecone FetchResponse has a .vectors attribute
-    vectors = getattr(res, 'vectors', None)
-    if vectors and id in vectors:
-        meta = vectors[id].get("metadata", {})
-        meta["id"] = id
-        return meta
-    # Try .to_dict() if available
-    if hasattr(res, 'to_dict'):
-        d = res.to_dict()
-        if "vectors" in d and id in d["vectors"]:
-            meta = d["vectors"][id].get("metadata", {})
-            meta["id"] = id
-            return meta
-    return {"id": id, "error": "Not found"}

@@ -94,6 +94,21 @@ app.post('/pinecone/query', async (req, res) => {
   }
 });
 
+app.get('/pinecone/fetch', async (req, res) => {
+  try {
+    const { id } = req.query;
+    if (!id) {
+      return res.status(400).json({ error: 'id is required' });
+    }
+    const index = pinecone.Index(PINECONE_INDEX);
+    const result = await index.fetch([id]);
+    res.json(result);
+  } catch (err) {
+    console.error('[Pinecone Fetch Error]', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 const PORT = process.env.PINECONE_MIDDLEWARE_PORT || 4000;
 
 ensureIndex().then(() => {

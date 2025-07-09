@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import axios from "axios";
-import { queryVectors, upsertVectors } from '../api';
+import { queryVectors, upsertVectors, fetchVector } from '../api';
 
 interface Region {
   tag: string;
@@ -157,8 +157,8 @@ const StorePage: React.FC = () => {
           duplicateInfo.similar_images.map(async (imgPath) => {
             try {
               const id = imgPath;
-              const res = await axios.get(`${base}/api/images/meta`, { params: { id } });
-              return res.data;
+              const res = await fetchVector(id);
+              return res;
             } catch {
               return { id: imgPath };
             }

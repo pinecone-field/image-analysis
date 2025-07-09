@@ -21,4 +21,10 @@ export async function queryVectors(queryVector: number[], topK = 10) {
   return res.data;
 }
 
+export async function fetchVector(id: string) {
+  const url = `${PINECONE_MIDDLEWARE_URL}/pinecone/fetch`;
+  const res = await axios.get(url, { params: { id } });
+  return res.data;
+}
+
 export default api;

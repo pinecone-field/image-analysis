@@ -1,6 +1,14 @@
 from dotenv import load_dotenv
 load_dotenv()
 
+import logging
+
+logging.basicConfig(
+    format="%(asctime)s.%(msecs)03d %(levelname)s %(name)s %(message)s",
+    level=logging.INFO,
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
